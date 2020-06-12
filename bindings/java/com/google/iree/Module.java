@@ -34,6 +34,10 @@ final class Module {
     }
   }
 
+  public long getNativeAddress() {
+    return nativeAddress;
+  }
+
   public void free() {
     nativeFree();
   }

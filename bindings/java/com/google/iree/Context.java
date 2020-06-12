@@ -16,14 +16,40 @@
 
 package com.google.iree;
 
+import java.util.List;
+
 /** An isolated execution context. */
 final class Context {
   public Context(Instance instance) throws Exception {
+    dynamic = true;
     nativeAddress = nativeNew();
     Status status = Status.fromCode(nativeCreate(instance.getNativeAddress()));
 
     if (!status.isOk()) {
       throw status.toException("Could not create Context");
+    }
+  }
+
+  public Context(Instance instance, List<Module> modules) throws Exception {
+    dynamic = false;
+    nativeAddress = nativeNew();
+    long[] moduleAdresses = getModuleAdresses(modules);
+    Status status =
+        Status.fromCode(nativeCreateWithModules(instance.getNativeAddress(), moduleAdresses));
+    if (!status.isOk()) {
+      throw status.toException("Could not create Context");
+    }
+  }
+
+  public void registerModules(List<Module> modules) throws Exception {
+    if (!dynamic) {
+      throw new IllegalStateException("Cannot register modules to a static context");
+    }
+
+    long[] moduleAdresses = getModuleAdresses(modules);
+    Status status = Status.fromCode(nativeRegisterModules(moduleAdresses));
+    if (!status.isOk()) {
+      throw status.toException("Could not register Modules");
     }
   }
 
@@ -35,11 +61,25 @@ final class Context {
     nativeFree();
   }
 
+  private static long[] getModuleAdresses(List<Module> modules) {
+    long[] moduleAddresses = new long[modules.size()];
+    for (int i = 0; i < modules.size(); i++) {
+      moduleAddresses[i] = modules.get(i).getNativeAddress();
+    }
+    return moduleAddresses;
+  }
+
   private final long nativeAddress;
+
+  private final boolean dynamic;
 
   private native long nativeNew();
 
   private native int nativeCreate(long instanceAddress);
+
+  private native int nativeCreateWithModules(long instanceAddress, long[] moduleAddresses);
+
+  private native int nativeRegisterModules(long[] moduleAddresses);
 
   private native void nativeFree();
 
